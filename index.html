@@ -814,7 +814,11 @@ document.addEventListener("click", (e) => {
   if (sl) {
     const name = V[+sl.dataset.sl].name;
     shortlist.has(name) ? shortlist.delete(name) : shortlist.add(name);
-    saveShortlist(); render();
+    saveShortlist();
+    // Rebuilding the list moves every row and makes phones jump, so only rebuild when the shortlist filter is on.
+    if (state.must.has("short")) { render(); return; }
+    sl.setAttribute("aria-pressed", String(shortlist.has(name)));
+    $("#slCount").textContent = shortlist.size;
     return;
   }
   const op = e.target.closest("[data-open]");
