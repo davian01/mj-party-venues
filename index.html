@@ -80,6 +80,10 @@ html { scrollbar-color: var(--ink) var(--paper); caret-color: var(--ink); }
 .btn { font: inherit; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; background: var(--paper); color: var(--ink); border: var(--thin); padding: 6px 12px; min-height: 36px; cursor: pointer; border-radius: 0; }
 .btn:hover { box-shadow: 3px 3px 0 var(--ink); }
 .btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+[hidden] { display: none !important; }
+.mm, .gapin { flex-wrap: wrap; }
+.gapin label { display: flex; align-items: center; gap: 6px; }
+.gapin input { font: inherit; font-size: 13px; width: 5em; padding: 6px 8px; min-height: 36px; border: var(--thin); border-radius: 0; background: var(--paper); color: var(--ink); }
 #q { font: inherit; font-size: 13px; padding: 6px 10px; min-height: 36px; border: var(--thin); border-radius: 0; background: var(--paper); color: var(--ink); min-width: 0; width: 100%; max-width: 420px; }
 .srcs { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; }
 .srcs li { display: grid; gap: 4px; padding: 10px 0; border-top: var(--thin); }
@@ -280,7 +284,9 @@ tr.r:has(+ tr.det:not([hidden])) > * { border-bottom: 0; }
       <div class="field">
         <div class="row"><input id="maxCost" type="range" min="200" max="2000" step="50" value="2000"><output id="maxCostOut" for="maxCost">Any</output></div>
         <span class="sub">Uses the price shown in the table. Venues with no published price drop out once you set a limit.</span>
-        <div class="row"><button class="btn" type="button" id="incMin" aria-pressed="true">Include bar minimums</button><span class="sub">Off: minimum-spend bars show only their hire fee, as if guests' drinks cover the minimum.</span></div>
+        <div class="row mm"><span class="sub">Bar minimums:</span><button class="btn" type="button" data-mm="full" aria-pressed="true">Full minimum</button><button class="btn" type="button" data-mm="gap" aria-pressed="false">Minus party spending</button></div>
+        <div class="row gapin" id="gapIn" hidden><label>Guests <input id="gGuests" type="number" inputmode="numeric" min="0" max="100" value="35"></label><span>×</span><label>$ each <input id="gSpend" type="number" inputmode="numeric" min="0" max="300" step="5" value="30"></label><span>= <output id="gTotal">$1,050</output> at the bar</span></div>
+        <span class="sub" id="gapNote" hidden>You'd pay the hire fee plus whatever the party falls short of the minimum. Only works where guests' tabs count; check rows marked "Tabs count?".</span>
       </div>
     </div>
     <div class="frow"><span class="lbl">Must</span>
@@ -429,7 +435,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const money = (n) => "$" + Math.round(n).toLocaleString("en-CA");
 const MAXCOST = 2000;
-const state = { kind: "all", zones: new Set(), must: new Set(), sort: "est", dir: "asc", incMin: true };
+const state = { kind: "all", zones: new Set(), must: new Set(), sort: "est", dir: "asc", mm: "full" };
 
 const SL_KEY = "mj-shortlist-v1";
 const SL_START = ["Bunkerville", "Wade Studio", "The Underground", "Neon Dance Studio", "Modern Underground Lounge", "¡Qué Rico!", "Good Fortune"];
@@ -457,6 +463,7 @@ function zone(v) {
 // Where a listing hides tax or its booking-site fee, add 13% HST and 10% (Peerspace and Giggster quotes ran 9-11%).
 const EST_TAX = 0.13, EST_FEE = 0.10;
 const estMult = (v) => { const p = PX(v); return (p.tax === "?" ? 1 + EST_TAX : 1) * (p.fee === "?" ? 1 + EST_FEE : 1); };
+const partySpend = () => Math.max(0, +$("#gGuests").value || 0) * Math.max(0, +$("#gSpend").value || 0);
 function costs(v, s) {
   const k = estMult(v);
   if (v.kind === "A" && !v.room) return { lo: null, hi: null, worst: null, note: "not published" };
@@ -465,7 +472,10 @@ function costs(v, s) {
   if (!v.min) return { lo: v.hire[0] * k, hi: v.hire[1] * k, worst: v.hire[1] * k, note: "hire fee; guests buy drinks" };
   // Show the full commitment: hire fee + minimum (+ stated gratuity). Guests' tabs may cover the minimum part.
   const t = v.hire[1] + v.min + (v.grat ? v.grat * v.min : 0);
-  if (!state.incMin) return { lo: v.hire[1], hi: v.hire[1], worst: t, note: "hire fee only; plus a " + money(v.min) + " bar minimum" };
+  if (state.mm === "gap") {
+    const spend = partySpend(), gap = Math.max(0, v.min - spend), g = v.hire[1] + gap + (v.grat ? v.grat * gap : 0);
+    return { lo: g, hi: g, worst: t, note: "hire fee + " + money(gap) + " short of the " + money(v.min) + " minimum after " + money(spend) + " party spending" };
+  }
   return { lo: t, hi: t, worst: t, note: v.hire[1] ? "hire fee + bar minimum" : "bar minimum" };
 }
 
@@ -621,7 +631,7 @@ function costHTML(c, v) {
   const est = v.kind !== "M";
   if (p.tax === "?") chips.push('<span class="pchip">' + (est ? "Tax est." : "+ tax?") + '</span>');
   if (p.fee === "?") chips.push('<span class="pchip">Fee est.</span>');
-  if (v.kind === "M" && !state.incMin) chips.push('<span class="pchip">+ ' + money(v.min) + ' min</span>');
+  if (v.kind === "M" && state.mm === "gap") chips.push('<span class="pchip">After ' + money(partySpend()) + ' spend</span>');
   if (v.kind === "M") chips.push(v.tabs === "yes" ? '<span class="pchip ok">Tabs count</span>' : '<span class="pchip">Tabs count?</span>');
   if (c.worst > c.hi + 1 && v.kind !== "M") chips.push('<span class="pchip">worst ' + money(c.worst) + '</span>');
   if (!chips.length) chips.push('<span class="pchip ok">All-in</span>');
@@ -710,6 +720,7 @@ function filtersActive() {
 const SORTS = { name: (r) => r.v.name.toLowerCase(), dance: (r) => DANCE[extra(r.v).dance] ?? null, est: (r) => mid(r.c), end: (r) => r.v.end, cap: (r) => r.v.cap };
 
 function render() {
+  $("#gTotal").value = money(partySpend());
   const max = +$("#maxCost").value;
   $("#maxCostOut").value = max >= MAXCOST ? "Any" : money(max);
 
@@ -782,8 +793,12 @@ $$("[data-sort]").forEach((b) => b.addEventListener("click", () => {
   state.sort = k;
   render();
 }));
-$("#incMin").addEventListener("click", (e) => { state.incMin = !state.incMin; e.currentTarget.setAttribute("aria-pressed", String(state.incMin)); render(); });
-["#maxCost", "#q"].forEach((id) => $(id).addEventListener("input", render));
+$$("[data-mm]").forEach((b) => b.addEventListener("click", () => {
+  state.mm = b.dataset.mm; press("[data-mm]", b);
+  $("#gapIn").hidden = $("#gapNote").hidden = state.mm !== "gap";
+  render();
+}));
+["#maxCost", "#q", "#gGuests", "#gSpend"].forEach((id) => $(id).addEventListener("input", render));
 $("#reset").addEventListener("click", resetFilters);
 document.addEventListener("click", (e) => {
   const sl = e.target.closest("[data-sl]");
