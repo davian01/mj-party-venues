@@ -280,6 +280,7 @@ tr.r:has(+ tr.det:not([hidden])) > * { border-bottom: 0; }
       <div class="field">
         <div class="row"><input id="maxCost" type="range" min="200" max="2000" step="50" value="2000"><output id="maxCostOut" for="maxCost">Any</output></div>
         <span class="sub">Uses the price shown in the table. Venues with no published price drop out once you set a limit.</span>
+        <div class="row"><button class="btn" type="button" id="incMin" aria-pressed="true">Include bar minimums</button><span class="sub">Off: minimum-spend bars show only their hire fee, as if guests' drinks cover the minimum.</span></div>
       </div>
     </div>
     <div class="frow"><span class="lbl">Must</span>
@@ -428,7 +429,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const money = (n) => "$" + Math.round(n).toLocaleString("en-CA");
 const MAXCOST = 2000;
-const state = { kind: "all", zones: new Set(), must: new Set(), sort: "est", dir: "asc" };
+const state = { kind: "all", zones: new Set(), must: new Set(), sort: "est", dir: "asc", incMin: true };
 
 const SL_KEY = "mj-shortlist-v1";
 const SL_START = ["Bunkerville", "Wade Studio", "The Underground", "Neon Dance Studio", "Modern Underground Lounge", "¡Qué Rico!", "Good Fortune"];
@@ -464,6 +465,7 @@ function costs(v, s) {
   if (!v.min) return { lo: v.hire[0] * k, hi: v.hire[1] * k, worst: v.hire[1] * k, note: "hire fee; guests buy drinks" };
   // Show the full commitment: hire fee + minimum (+ stated gratuity). Guests' tabs may cover the minimum part.
   const t = v.hire[1] + v.min + (v.grat ? v.grat * v.min : 0);
+  if (!state.incMin) return { lo: v.hire[1], hi: v.hire[1], worst: t, note: "hire fee only; plus a " + money(v.min) + " bar minimum" };
   return { lo: t, hi: t, worst: t, note: v.hire[1] ? "hire fee + bar minimum" : "bar minimum" };
 }
 
@@ -619,8 +621,9 @@ function costHTML(c, v) {
   const est = v.kind !== "M";
   if (p.tax === "?") chips.push('<span class="pchip">' + (est ? "Tax est." : "+ tax?") + '</span>');
   if (p.fee === "?") chips.push('<span class="pchip">Fee est.</span>');
+  if (v.kind === "M" && !state.incMin) chips.push('<span class="pchip">+ ' + money(v.min) + ' min</span>');
   if (v.kind === "M") chips.push(v.tabs === "yes" ? '<span class="pchip ok">Tabs count</span>' : '<span class="pchip">Tabs count?</span>');
-  if (c.worst > c.hi + 1) chips.push('<span class="pchip">worst ' + money(c.worst) + '</span>');
+  if (c.worst > c.hi + 1 && v.kind !== "M") chips.push('<span class="pchip">worst ' + money(c.worst) + '</span>');
   if (!chips.length) chips.push('<span class="pchip ok">All-in</span>');
   return '<span class="cell ' + b[0] + '">' + money(c.hi) + '</span> <span class="bandw">' + b[1] + '</span>' +
     '<span class="basis">' + esc(basis(p)) + '</span><span class="chips">' + chips.join("") + '</span>';
@@ -779,6 +782,7 @@ $$("[data-sort]").forEach((b) => b.addEventListener("click", () => {
   state.sort = k;
   render();
 }));
+$("#incMin").addEventListener("click", (e) => { state.incMin = !state.incMin; e.currentTarget.setAttribute("aria-pressed", String(state.incMin)); render(); });
 ["#maxCost", "#q"].forEach((id) => $(id).addEventListener("input", render));
 $("#reset").addEventListener("click", resetFilters);
 document.addEventListener("click", (e) => {
