@@ -83,6 +83,8 @@ html { scrollbar-color: var(--ink) var(--paper); caret-color: var(--ink); }
 [hidden] { display: none !important; }
 .mm, .gapin { flex-wrap: wrap; }
 .gapin label { display: flex; align-items: center; gap: 6px; }
+.mmf { gap: 10px !important; }
+.gapin output { font: inherit; font-weight: 700; min-width: 0; }
 .gapin input { font: inherit; font-size: 13px; width: 5em; padding: 6px 8px; min-height: 36px; border: var(--thin); border-radius: 0; background: var(--paper); color: var(--ink); }
 #q { font: inherit; font-size: 13px; padding: 6px 10px; min-height: 36px; border: var(--thin); border-radius: 0; background: var(--paper); color: var(--ink); min-width: 0; width: 100%; max-width: 420px; }
 .srcs { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; }
@@ -94,8 +96,13 @@ html { scrollbar-color: var(--ink) var(--paper); caret-color: var(--ink); }
 .srclinks a { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; border: var(--thin); padding: 4px 6px; color: var(--ink); text-decoration: none; }
 .srclinks a:hover { box-shadow: 3px 3px 0 var(--ink); }
 @media (pointer: coarse) { .srclinks a { min-height: 44px; display: inline-flex; align-items: center; } }
-.legend { display: grid; gap: 6px; font-size: 13px; }
-.legend div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.legend { font-size: 13px; border-top: var(--thin); padding-top: 8px; }
+.legend summary { cursor: pointer; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; min-height: 36px; display: flex; align-items: center; list-style: none; }
+.legend summary::-webkit-details-marker { display: none; }
+.legend summary::before { content: "+\00a0"; }
+.legend[open] summary::before { content: "−\00a0"; }
+.lgrid { display: grid; gap: 6px; padding-top: 6px; }
+.lgrid > div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 
 .tag { display: inline-block; border: var(--thin); padding: 1px 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
 .tag.A { background: var(--ink); color: var(--paper); }
@@ -180,6 +187,7 @@ th[aria-sort="descending"] .sorter::after { content: " ↓"; }
 .bandw { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .c-cost .sub, .basis, .chips { display: block; }
 .basis { font-size: 12px; margin-top: 4px; }
+.math { display: block; font-size: 12px; font-variant-numeric: tabular-nums; }
 .pchip { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; border: 1px dashed var(--mute); color: var(--mute); padding: 0 4px; margin: 3px 3px 0 0; white-space: nowrap; }
 .pchip.ok { border: 1px solid var(--ink); color: var(--ink); }
 .vn { flex-wrap: wrap; min-width: 13.5em; }
@@ -284,9 +292,13 @@ tr.r:has(+ tr.det:not([hidden])) > * { border-bottom: 0; }
       <div class="field">
         <div class="row"><input id="maxCost" type="range" min="200" max="2000" step="50" value="2000"><output id="maxCostOut" for="maxCost">Any</output></div>
         <span class="sub">Uses the price shown in the table. Venues with no published price drop out once you set a limit.</span>
-        <div class="row mm"><span class="sub">Bar minimums:</span><button class="btn" type="button" data-mm="full" aria-pressed="true">Full minimum</button><button class="btn" type="button" data-mm="gap" aria-pressed="false">Minus party spending</button></div>
+      </div>
+    </div>
+    <div class="frow"><span class="lbl">Bar minimums</span>
+      <div class="field mmf">
+        <div class="bar" role="group" aria-label="Bar minimums"><button class="btn" type="button" data-mm="full" aria-pressed="true">Full minimum</button><button class="btn" type="button" data-mm="gap" aria-pressed="false">Minus party spending</button></div>
         <div class="row gapin" id="gapIn" hidden><label>Guests <input id="gGuests" type="number" inputmode="numeric" min="0" max="100" value="35"></label><span>×</span><label>$ each <input id="gSpend" type="number" inputmode="numeric" min="0" max="300" step="5" value="30"></label><span>= <output id="gTotal">$1,050</output> at the bar</span></div>
-        <span class="sub" id="gapNote" hidden>You'd pay the hire fee plus whatever the party falls short of the minimum. Only works where guests' tabs count; check rows marked "Tabs count?".</span>
+        <span class="sub" id="gapNote" hidden>You pay the hire fee plus whatever the party falls short of the minimum. Only works where guests' tabs count; check rows marked "Tabs count?".</span>
       </div>
     </div>
     <div class="frow"><span class="lbl">Must</span>
@@ -296,13 +308,15 @@ tr.r:has(+ tr.det:not([hidden])) > * { border-bottom: 0; }
         <button class="btn" type="button" data-must="short" aria-pressed="false">On shortlist ★ <span id="slCount"></span></button>
       </div>
     </div>
-    <div class="legend">
+    <details class="legend"><summary>What the labels mean</summary>
+      <div class="lgrid">
       <div><span class="tag A">You buy alcohol</span> Private room. You hold the permit and buy the drinks.</div>
       <div><span class="tag">Flat fee bar</span> Licensed. You pay a hire fee; guests buy their own drinks.</div>
       <div><span class="tag">Minimum spend</span> Licensed. The price is the minimum the bar must take; if guests' tabs count, their drinks go toward it and you pay only the gap.</div>
       <div><span class="tag">Café</span> A café rented after hours. Alcohol rules vary: see each row.</div>
       <div><span class="dz dz3">Floor</span> real dance floor or studio. <span class="dz">Room</span> open space to dance. <span class="dz dz1">Tight</span> / <span class="dz dz0">Limited</span> small, or music limits. Click a column heading to sort; click a venue name for the full details.</div>
-    </div>
+      </div>
+    </details>
   </section>
 
   <section class="venues" aria-labelledby="count">
@@ -464,6 +478,23 @@ function zone(v) {
 const EST_TAX = 0.13, EST_FEE = 0.10;
 const estMult = (v) => { const p = PX(v); return (p.tax === "?" ? 1 + EST_TAX : 1) * (p.fee === "?" ? 1 + EST_FEE : 1); };
 const partySpend = () => Math.max(0, +$("#gGuests").value || 0) * Math.max(0, +$("#gSpend").value || 0);
+// The sum behind the shown price, written out.
+function priceMath(v, c) {
+  if (c.lo === null) return "";
+  if (v.kind === "M") {
+    const tip = (n) => (v.grat ? " + " + money(v.grat * n) + " tip (" + Math.round(v.grat * 100) + "%)" : "");
+    const hire = v.hire[1] ? money(v.hire[1]) + " hire + " : "";
+    if (state.mm !== "gap") return v.hire[1] || v.grat ? hire + money(v.min) + " min" + tip(v.min) + " = " + money(c.hi) : "";
+    const spend = partySpend(), gap = Math.max(0, v.min - spend);
+    const parts = [v.hire[1] && money(v.hire[1]) + " hire", gap && money(gap) + " short", gap && v.grat && money(v.grat * gap) + " tip"].filter(Boolean);
+    return money(v.min) + " min − " + money(spend) + " party = " + (gap ? money(gap) + " short" : "covered") +
+      (parts.length > 1 ? "; " + parts.join(" + ") + " = " + money(c.hi) : !gap && v.hire[1] ? "; " + money(v.hire[1]) + " hire only" : "");
+  }
+  const k = estMult(v), p = PX(v);
+  if (k === 1) return "";
+  const base = c.hi / k;
+  return money(base) + " + " + money(c.hi - base) + " est. " + (p.tax === "?" && p.fee === "?" ? "tax & fee" : p.tax === "?" ? "tax" : "fee") + " = " + money(c.hi);
+}
 function costs(v, s) {
   const k = estMult(v);
   if (v.kind === "A" && !v.room) return { lo: null, hi: null, worst: null, note: "not published" };
@@ -631,12 +662,12 @@ function costHTML(c, v) {
   const est = v.kind !== "M";
   if (p.tax === "?") chips.push('<span class="pchip">' + (est ? "Tax est." : "+ tax?") + '</span>');
   if (p.fee === "?") chips.push('<span class="pchip">Fee est.</span>');
-  if (v.kind === "M" && state.mm === "gap") chips.push('<span class="pchip">After ' + money(partySpend()) + ' spend</span>');
   if (v.kind === "M") chips.push(v.tabs === "yes" ? '<span class="pchip ok">Tabs count</span>' : '<span class="pchip">Tabs count?</span>');
   if (c.worst > c.hi + 1 && v.kind !== "M") chips.push('<span class="pchip">worst ' + money(c.worst) + '</span>');
   if (!chips.length) chips.push('<span class="pchip ok">All-in</span>');
   return '<span class="cell ' + b[0] + '">' + money(c.hi) + '</span> <span class="bandw">' + b[1] + '</span>' +
-    '<span class="basis">' + esc(basis(p)) + '</span><span class="chips">' + chips.join("") + '</span>';
+    '<span class="basis">' + esc(basis(p)) + '</span>' + (priceMath(v, c) ? '<span class="math">' + esc(priceMath(v, c)) + '</span>' : '') +
+    '<span class="chips">' + chips.join("") + '</span>';
 }
 
 function rowHTML(v, i) {
@@ -664,6 +695,7 @@ function receipt(v, c) {
   return '<div class="rcpt">' + row("Rate", p.rate) +
     row("Hours", p.hn ? p.hn + " hr" + (p.win ? ", " + p.win : "") : (p.win || "Not applicable")) +
     row("Extras", p.extras || "None listed") + row("Site fee", FEE[p.fee]) + row("Tax", TAX[v.kind === "M" && p.tax === "?" ? "m" : p.tax]) +
+    (priceMath(v, c) ? row("Math", priceMath(v, c)) : '') +
     '<span class="rk">Total</span><span class="rt">' + (c.lo === null ? "Not published" : money(c.hi)) + '</span></div>' +
     '<p class="rnote">' + esc(v.price) + '</p>';
 }
