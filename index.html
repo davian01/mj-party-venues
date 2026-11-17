@@ -146,10 +146,6 @@ footer { border-top: var(--rule); padding-top: 14px; display: grid; gap: 8px; fo
 
 .frow { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 6px 12px; align-items: center; }
 .frow .field { gap: 2px; }
-.assume { border: var(--thin); }
-.assume summary { cursor: pointer; padding: 8px 12px; font-weight: 600; }
-.assume[open] summary { border-bottom: var(--thin); }
-.assume > .controls, .assume > .note { margin: 12px; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
 .sticky { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); padding-top: 10px; }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -293,24 +289,10 @@ tr.r:has(+ tr.det:not([hidden])) > * { border-bottom: 0; }
         <button class="btn" type="button" data-must="short" aria-pressed="false">On shortlist ★ <span id="slCount"></span></button>
       </div>
     </div>
-    <details class="assume">
-      <summary>Minimum-spend assumptions: <span id="assumeSum"></span></summary>
-      <div class="controls">
-        <div class="field">
-          <label class="lbl" for="turnout">Guests who actually come</label>
-          <div class="row"><input id="turnout" type="range" min="15" max="45" step="1" value="30"><output id="turnoutOut" for="turnout">30</output></div>
-        </div>
-        <div class="field">
-          <label class="lbl" for="spend">Average bar spend per guest</label>
-          <div class="row"><input id="spend" type="range" min="0" max="80" step="5" value="30"><output id="spendOut" for="spend">$30</output></div>
-        </div>
-      </div>
-      <p class="note">These only change minimum-spend venues: you pay any gap between what guests spend at the bar and the minimum. Where a listing doesn't say guests' tabs count, the worst case assumes they don't. All costs are the room only; your own alcohol, the $50 permit, insurance and supplies are not counted.</p>
-    </details>
     <div class="legend">
       <div><span class="tag A">You buy alcohol</span> Private room. You hold the permit and buy the drinks.</div>
       <div><span class="tag">Flat fee bar</span> Licensed. You pay a hire fee; guests buy their own drinks.</div>
-      <div><span class="tag">Minimum spend</span> Licensed. Guests' tabs may cover it; you pay any gap.</div>
+      <div><span class="tag">Minimum spend</span> Licensed. The price is the minimum the bar must take; if guests' tabs count, their drinks go toward it and you pay only the gap.</div>
       <div><span class="tag">Café</span> A café rented after hours. Alcohol rules vary: see each row.</div>
       <div><span class="dz dz3">Floor</span> real dance floor or studio. <span class="dz">Room</span> open space to dance. <span class="dz dz1">Tight</span> / <span class="dz dz0">Limited</span> small, or music limits. Click a column heading to sort; click a venue name for the full details.</div>
     </div>
@@ -356,7 +338,7 @@ tr.r:has(+ tr.det:not([hidden])) > * { border-bottom: 0; }
   </section>
 
   <footer>
-    <p>Bars: the cost is the hire fee only, since guests pay for their own drinks; gratuity is added only where the listing states it. Private rooms: the room only; your alcohol, permit, insurance and supplies are extra. Giggster prices are base rent; its fees, tax and any cleaning fee show only during booking.</p>
+    <p>Flat fee bars: the cost is the hire fee only, since guests pay for their own drinks. Minimum-spend bars: the hire fee plus the full minimum, before any guest tabs; gratuity is added only where the listing states it. Private rooms: the room only; your alcohol, permit, insurance and supplies are extra. Giggster prices are base rent; its fees, tax and any cleaning fee show only during booking.</p>
     <p>Sources: the venues' Tagvenue, Peerspace and Giggster listings and their own sites, read Nov 16-17, 2026. Photos are each listing's main image.</p>
   </footer>
 </div>
@@ -471,8 +453,6 @@ function zone(v) {
   return "Toronto";
 }
 
-function settings() { return { turnout: +$("#turnout").value, spend: +$("#spend").value }; }
-
 // Where a listing hides tax or its booking-site fee, add 13% HST and 10% (Peerspace and Giggster quotes ran 9-11%).
 const EST_TAX = 0.13, EST_FEE = 0.10;
 const estMult = (v) => { const p = PX(v); return (p.tax === "?" ? 1 + EST_TAX : 1) * (p.fee === "?" ? 1 + EST_FEE : 1); };
@@ -482,14 +462,9 @@ function costs(v, s) {
   if (v.kind === "A") return { lo: v.room[0] * k, hi: v.room[1] * k, worst: v.room[1] * k, note: "room only; your alcohol extra" };
   if (v.hire === null || v.min === null) return { lo: null, hi: null, worst: null, note: "not published" };
   if (!v.min) return { lo: v.hire[0] * k, hi: v.hire[1] * k, worst: v.hire[1] * k, note: "hire fee; guests buy drinks" };
-  const barSpend = s.turnout * s.spend;
-  const gap = Math.max(0, v.min - barSpend);
-  const worst = v.hire[1] + v.min + (v.grat ? v.grat * v.min : 0);
-  if (v.tabs === "yes") {
-    const est = v.hire[0] + gap + (v.grat ? v.grat * gap : 0);
-    return { lo: est, hi: est, worst, note: "guests' tabs " + money(barSpend) + " vs " + money(v.min) + " minimum" };
-  }
-  return { lo: v.hire[0] + gap, hi: worst, worst, unsure: true, note: "low if guests' tabs count; high if they don't" };
+  // Show the full commitment: hire fee + minimum (+ stated gratuity). Guests' tabs may cover the minimum part.
+  const t = v.hire[1] + v.min + (v.grat ? v.grat * v.min : 0);
+  return { lo: t, hi: t, worst: t, note: v.hire[1] ? "hire fee + bar minimum" : "bar minimum" };
 }
 
 // Unknown hours are unknown, not "late": they sort last and fail the 1:30 am filter.
@@ -601,7 +576,7 @@ const P = {
   "Indoor Golf, 146 Dupont": ["$1,298 bar min", null, "", "Tabs may not count", "?", ""],
   "SPIN Toronto": ["Ask; $750 per 20 guests", null, "", "18% service", "?", ""],
   "Quick Games Hub": ["$180/hr", 4, "9 pm-1 am", "None listed", "in", ""],
-  "Last Temptation": ["$40/hr + $1,000 bar min", 5.5, "8 pm-1:30 am", "15% gratuity", "?", "in"],
+  "Last Temptation": ["$253 room + $1,000 bar min", null, "8 pm-1:30 am", "15% gratuity", "?", "in"],
   "Junction Underground": ["Deposit; bar target", null, "", "Target not published", "?", ""],
   "Curva Sud Espresso Bar": ["$500 bar min", null, "", "Tabs may not count", "in", ""],
   "Lazy Daisy's Cafe": ["$600 flat", 4, "4 hr, with a server", "None listed", "add", ""],
@@ -644,6 +619,7 @@ function costHTML(c, v) {
   const est = v.kind !== "M";
   if (p.tax === "?") chips.push('<span class="pchip">' + (est ? "Tax est." : "+ tax?") + '</span>');
   if (p.fee === "?") chips.push('<span class="pchip">Fee est.</span>');
+  if (v.kind === "M") chips.push(v.tabs === "yes" ? '<span class="pchip ok">Tabs count</span>' : '<span class="pchip">Tabs count?</span>');
   if (c.worst > c.hi + 1) chips.push('<span class="pchip">worst ' + money(c.worst) + '</span>');
   if (!chips.length) chips.push('<span class="pchip ok">All-in</span>');
   return '<span class="cell ' + b[0] + '">' + money(c.hi) + '</span> <span class="bandw">' + b[1] + '</span>' +
@@ -686,7 +662,7 @@ function card({ v, c, i }) {
   const wb = c.worst === null ? null : band(c.worst);
   const worst = c.worst === null ? '<span class="big na">Unknown</span>' :
     '<span class="big ' + wb[0] + '">' + money(c.worst) + '</span>' +
-    (v.min ? '<span class="sub">' + (v.tabs === "yes" ? "if guests spend nothing" : "if tabs don't count") + '</span>' : '');
+    (v.min ? '<span class="sub">' + (v.tabs === "yes" ? "Guests' bar tabs count toward the minimum" : "Ask whether guests' tabs count toward it") + '</span>' : '');
   const tags = '<span class="tag ' + v.kind + '">' + kindLabel[v.kind] + '</span>' +
     (v.games ? '<span class="tag">Games</span>' : '') + (v.cafe && v.kind !== "C" ? '<span class="tag">Café</span>' : '');
   const img = IMG[v.name];
@@ -731,14 +707,10 @@ function filtersActive() {
 const SORTS = { name: (r) => r.v.name.toLowerCase(), dance: (r) => DANCE[extra(r.v).dance] ?? null, est: (r) => mid(r.c), end: (r) => r.v.end, cap: (r) => r.v.cap };
 
 function render() {
-  const s = settings();
-  $("#turnoutOut").value = s.turnout;
-  $("#spendOut").value = money(s.spend);
-  $("#assumeSum").textContent = s.turnout + " guests spending " + money(s.spend) + " each";
   const max = +$("#maxCost").value;
   $("#maxCostOut").value = max >= MAXCOST ? "Any" : money(max);
 
-  ROWS.forEach((r) => { r.c = costs(r.v, s); });
+  ROWS.forEach((r) => { r.c = costs(r.v); });
   let rows = ROWS.slice();
   if (state.kind === "G") rows = rows.filter((r) => r.v.games);
   else if (state.kind === "C") rows = rows.filter((r) => r.v.kind === "C" || r.v.cafe);
@@ -807,7 +779,7 @@ $$("[data-sort]").forEach((b) => b.addEventListener("click", () => {
   state.sort = k;
   render();
 }));
-["#turnout", "#spend", "#maxCost", "#q"].forEach((id) => $(id).addEventListener("input", render));
+["#maxCost", "#q"].forEach((id) => $(id).addEventListener("input", render));
 $("#reset").addEventListener("click", resetFilters);
 document.addEventListener("click", (e) => {
   const sl = e.target.closest("[data-sl]");
